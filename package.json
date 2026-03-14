@@ -9,11 +9,14 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@headlessui/react": "^2.2.4",
+    "@tailwindcss/typography": "^0.5.19",
     "next": "15.1.8",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-dropzone": "^14.3.8",
+    "react-markdown": "^10.1.0",
     "tailwind": "^4.0.0"
   },
   "devDependencies": {
