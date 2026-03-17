@@ -154,10 +154,14 @@ export default function Home() {
           />
           <Button
             type="button"
-            className="mt-4 px-8 py-3 bg-green-500 text-white hover:bg-green-600 rounded-lg font-bold transition-all duration-200 shadow-lg shadow-green-500/20 cursor-pointer"
+            className={`mt-4 px-8 py-3 rounded-lg font-bold transition-all duration-200 shadow-lg cursor-pointer ${
+              videoFile
+                ? 'bg-white text-green-600 border-2 border-green-500 hover:bg-green-50 shadow-green-500/10'
+                : 'bg-green-500 text-white hover:bg-green-600 shadow-green-500/20'
+            }`}
             onClick={() => setIsModalOpen(true)}
           >
-            Upload
+            {videoFile ? 'Replace Video' : 'Upload'}
           </Button>
           {videoFile && (
             <button
@@ -233,10 +237,16 @@ export default function Home() {
             </button>
             <Dialog.Title
               as="h3"
-              className="text-2xl font-bold text-center text-gray-900 mb-8"
+              className="text-2xl font-bold text-center text-gray-900 mb-1"
             >
               Select Camera View
             </Dialog.Title>
+            {videoFile && (
+              <p className="text-center text-sm text-amber-600 mb-6">
+                Selecting a new video will replace the current one
+              </p>
+            )}
+            {!videoFile && <div className="mb-8" />}
             <div className="grid grid-cols-2 gap-8 h-[calc(100%-6rem)]">
               {/* Down The Line */}
               <div className="space-y-8 p-8 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 flex flex-col items-center justify-between">
