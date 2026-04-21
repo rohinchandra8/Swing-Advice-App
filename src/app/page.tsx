@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@headlessui/react';
 import { Dialog } from '@headlessui/react';
-import ReactMarkdown from 'react-markdown';
 
 type CameraType = 'DTL' | 'HeadOn';
+
+type Improvement = { title: string; detail: string };
 
 async function extractFrames(file: File, frameCount = 8): Promise<string[]> {
   return new Promise((resolve, reject) => {
@@ -59,9 +60,10 @@ export default function Home() {
   const [cameraType, setCameraType] = useState<CameraType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [loadingStep, setLoadingStep] = useState<0 | 1 | 2 | 3>(0);
+  const [loadingStep, setLoadingStep] = useState<0 | 1 | 2>(0);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [analysisResult, setAnalysisResult] = useState('');
+  const [improvements, setImprovements] = useState<Improvement[] | null>(null);
+  const [analysisError, setAnalysisError] = useState('');
 
   const LOADING_MESSAGES: Record<CameraType, string[]> = {
     DTL: [
@@ -84,18 +86,15 @@ export default function Home() {
 
   useEffect(() => {
     if (loadingStep !== 2) return;
-
     const progressInterval = setInterval(() => {
       setLoadingProgress((prev) => {
         const increment = Math.max(0.05, (85 - prev) * 0.008);
         return Math.min(85, prev + increment);
       });
     }, 100);
-
-    return () => {
-      clearInterval(progressInterval);
-    };
+    return () => clearInterval(progressInterval);
   }, [loadingStep]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCameraType = useRef<CameraType | null>(null);
 
@@ -103,11 +102,10 @@ export default function Home() {
     const file = e.target.files?.[0];
     if (file && file.type.startsWith('video/')) {
       setVideoFile(file);
-      if (pendingCameraType.current) {
-        setCameraType(pendingCameraType.current);
-      }
+      if (pendingCameraType.current) setCameraType(pendingCameraType.current);
       setIsModalOpen(false);
-      setAnalysisResult('');
+      setImprovements(null);
+      setAnalysisError('');
     }
     e.target.value = '';
   };
@@ -122,7 +120,8 @@ export default function Home() {
     setIsAnalyzing(true);
     setLoadingStep(1);
     setLoadingProgress(0);
-    setAnalysisResult('');
+    setImprovements(null);
+    setAnalysisError('');
 
     try {
       const frames = await extractFrames(videoFile);
@@ -134,26 +133,12 @@ export default function Home() {
         body: JSON.stringify({ frames, cameraType }),
       });
 
-      if (!res.ok) {
-        throw new Error(`Analysis failed: ${res.statusText}`);
-      }
+      if (!res.ok) throw new Error(`Analysis failed: ${res.statusText}`);
 
-      const reader = res.body!.getReader();
-      const decoder = new TextDecoder();
-      let firstChunk = true;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        if (firstChunk) {
-          setLoadingStep(3);
-          firstChunk = false;
-        }
-        setAnalysisResult((prev) => prev + decoder.decode(value));
-      }
+      const data = await res.json() as { improvements: Improvement[] };
+      setImprovements(data.improvements);
     } catch (err) {
-      setAnalysisResult(
-        `Error: ${err instanceof Error ? err.message : 'Something went wrong. Please try again.'}`
-      );
+      setAnalysisError(err instanceof Error ? err.message : 'Something went wrong. Please try again.');
     } finally {
       setIsAnalyzing(false);
       setLoadingStep(0);
@@ -174,11 +159,7 @@ export default function Home() {
       <div className="w-full max-w-2xl p-8 rounded-xl border-2 border-dashed transition-all duration-200 ease-in-out backdrop-blur-sm bg-white/30">
         <div className="flex flex-col items-center justify-center text-center space-y-4">
           <div className="p-4 rounded-full bg-green-100">
-            <img
-              src="/icons/Swing_Icon.png"
-              alt="Golf swing icon"
-              className="w-12 h-12 object-contain mx-auto"
-            />
+            <img src="/icons/Swing_Icon.png" alt="Golf swing icon" className="w-12 h-12 object-contain mx-auto" />
           </div>
           <div className="space-y-2">
             <p className="text-xl font-semibold text-gray-700">
@@ -190,13 +171,7 @@ export default function Home() {
                 : 'Click upload to select your video'}
             </p>
           </div>
-          <input
-            type="file"
-            accept="video/*"
-            className="hidden"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-          />
+          <input type="file" accept="video/*" className="hidden" ref={fileInputRef} onChange={handleFileChange} />
           <Button
             type="button"
             className={`mt-4 px-8 py-3 rounded-lg font-bold transition-all duration-200 shadow-lg cursor-pointer ${
@@ -231,7 +206,7 @@ export default function Home() {
       </div>
 
       {/* Analysis Results */}
-      {(isAnalyzing || analysisResult) && (
+      {(isAnalyzing || improvements || analysisError) && (
         <div className="w-full max-w-2xl mt-6 rounded-xl bg-white shadow-lg overflow-hidden">
           <div className="px-6 py-4 bg-green-600">
             <h2 className="text-white font-bold text-lg">Swing Analysis</h2>
@@ -242,7 +217,7 @@ export default function Home() {
             )}
           </div>
           <div className="px-6 py-5">
-            {isAnalyzing && !analysisResult && (
+            {isAnalyzing && (
               <div className="py-2 space-y-3">
                 <p className="text-sm font-medium text-gray-700">
                   {loadingStep === 1
@@ -262,18 +237,31 @@ export default function Home() {
                 </div>
               </div>
             )}
-            <div className="prose prose-sm prose-green max-w-none text-gray-700">
-              <ReactMarkdown>{analysisResult}</ReactMarkdown>
-            </div>
+
+            {analysisError && (
+              <p className="text-red-600 text-sm">{analysisError}</p>
+            )}
+
+            {improvements && (
+              <div className="space-y-3">
+                {improvements.map((item, i) => (
+                  <div key={i} className="flex gap-4 p-4 rounded-lg bg-gray-50 border border-gray-100">
+                    <span className="flex-shrink-0 w-7 h-7 rounded-full bg-green-600 text-white text-sm font-bold flex items-center justify-center">
+                      {i + 1}
+                    </span>
+                    <div>
+                      <p className="font-semibold text-gray-900 text-sm">{item.title}</p>
+                      <p className="text-sm text-gray-600 mt-0.5">{item.detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      <Dialog
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        className="relative z-50"
-      >
+      <Dialog open={isModalOpen} onClose={() => setIsModalOpen(false)} className="relative z-50">
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <Dialog.Panel className="w-full max-w-3xl h-[600px] transform overflow-hidden rounded-2xl bg-white p-8 text-left align-middle shadow-xl transition-all relative">
@@ -281,26 +269,12 @@ export default function Home() {
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 transition-colors duration-200"
             >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="text-gray-500 hover:text-gray-700"
-              >
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500 hover:text-gray-700">
                 <line x1="18" y1="6" x2="6" y2="18"></line>
                 <line x1="6" y1="6" x2="18" y2="18"></line>
               </svg>
             </button>
-            <Dialog.Title
-              as="h3"
-              className="text-2xl font-bold text-center text-gray-900 mb-1"
-            >
+            <Dialog.Title as="h3" className="text-2xl font-bold text-center text-gray-900 mb-1">
               Select Camera View
             </Dialog.Title>
             {videoFile && (
@@ -310,7 +284,6 @@ export default function Home() {
             )}
             {!videoFile && <div className="mb-8" />}
             <div className="grid grid-cols-2 gap-8 h-[calc(100%-6rem)]">
-              {/* Down The Line */}
               <div className="space-y-8 p-8 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 flex flex-col items-center justify-between">
                 <div className="text-center space-y-4">
                   <h4 className="text-xl font-semibold text-gray-900">Down The Line View</h4>
@@ -319,11 +292,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="w-32 h-32">
-                  <img
-                    src="/icons/DTL_Logo.webp"
-                    alt="Down The Line View Icon"
-                    className="w-full h-full object-contain"
-                  />
+                  <img src="/icons/DTL_Logo.webp" alt="Down The Line View Icon" className="w-full h-full object-contain" />
                 </div>
                 <Button
                   type="button"
@@ -334,7 +303,6 @@ export default function Home() {
                 </Button>
               </div>
 
-              {/* Head On */}
               <div className="space-y-8 p-8 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors duration-200 flex flex-col items-center justify-between">
                 <div className="text-center space-y-4">
                   <h4 className="text-xl font-semibold text-gray-900">Head On View</h4>
@@ -343,11 +311,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="w-32 h-32">
-                  <img
-                    src="/icons/HeadOn_Logo_transparent.png"
-                    alt="Head On View Icon"
-                    className="w-full h-full object-contain"
-                  />
+                  <img src="/icons/HeadOn_Logo_transparent.png" alt="Head On View Icon" className="w-full h-full object-contain" />
                 </div>
                 <Button
                   type="button"
