@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button } from '@headlessui/react';
 import { Dialog } from '@headlessui/react';
 import ReactMarkdown from 'react-markdown';
@@ -59,7 +59,43 @@ export default function Home() {
   const [cameraType, setCameraType] = useState<CameraType | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [loadingStep, setLoadingStep] = useState<0 | 1 | 2 | 3>(0);
+  const [loadingProgress, setLoadingProgress] = useState(0);
   const [analysisResult, setAnalysisResult] = useState('');
+
+  const LOADING_MESSAGES: Record<CameraType, string[]> = {
+    DTL: [
+      'Analyzing swing path...',
+      'Reviewing club plane and shaft angle...',
+      'Checking takeaway and width...',
+      'Examining impact position...',
+      'Evaluating downswing sequence...',
+      'Reviewing follow-through...',
+    ],
+    HeadOn: [
+      'Checking setup and posture...',
+      'Analyzing weight transfer...',
+      'Reviewing hip turn and clearance...',
+      'Examining balance and finish...',
+      'Checking spine angle and alignment...',
+      'Evaluating arm position through the swing...',
+    ],
+  };
+
+  useEffect(() => {
+    if (loadingStep !== 2) return;
+
+    const progressInterval = setInterval(() => {
+      setLoadingProgress((prev) => {
+        const increment = Math.max(0.05, (85 - prev) * 0.008);
+        return Math.min(85, prev + increment);
+      });
+    }, 100);
+
+    return () => {
+      clearInterval(progressInterval);
+    };
+  }, [loadingStep]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingCameraType = useRef<CameraType | null>(null);
 
@@ -84,10 +120,13 @@ export default function Home() {
   const handleAnalyze = async () => {
     if (!videoFile || !cameraType) return;
     setIsAnalyzing(true);
+    setLoadingStep(1);
+    setLoadingProgress(0);
     setAnalysisResult('');
 
     try {
       const frames = await extractFrames(videoFile);
+      setLoadingStep(2);
 
       const res = await fetch('/api/analyze', {
         method: 'POST',
@@ -101,9 +140,14 @@ export default function Home() {
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
+      let firstChunk = true;
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
+        if (firstChunk) {
+          setLoadingStep(3);
+          firstChunk = false;
+        }
         setAnalysisResult((prev) => prev + decoder.decode(value));
       }
     } catch (err) {
@@ -112,6 +156,7 @@ export default function Home() {
       );
     } finally {
       setIsAnalyzing(false);
+      setLoadingStep(0);
     }
   };
 
@@ -198,7 +243,24 @@ export default function Home() {
           </div>
           <div className="px-6 py-5">
             {isAnalyzing && !analysisResult && (
-              <p className="text-gray-400 italic">Analyzing your swing...</p>
+              <div className="py-2 space-y-3">
+                <p className="text-sm font-medium text-gray-700">
+                  {loadingStep === 1
+                    ? 'Extracting frames from video...'
+                    : cameraType
+                      ? LOADING_MESSAGES[cameraType][Math.min(
+                          LOADING_MESSAGES[cameraType].length - 1,
+                          Math.floor(loadingProgress / 15)
+                        )]
+                      : 'Analyzing your swing...'}
+                </p>
+                <div className="w-full bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                  <div
+                    className="bg-green-500 h-1.5 rounded-full transition-all duration-300 ease-out"
+                    style={{ width: `${loadingStep === 1 ? 5 : loadingProgress}%` }}
+                  />
+                </div>
+              </div>
             )}
             <div className="prose prose-sm prose-green max-w-none text-gray-700">
               <ReactMarkdown>{analysisResult}</ReactMarkdown>

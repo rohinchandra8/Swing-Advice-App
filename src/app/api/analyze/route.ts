@@ -15,7 +15,9 @@ Focus your analysis on:
 - Impact position and club face angle
 - Follow-through and finish
 
-Provide a structured, actionable coaching analysis with specific observations and drills to improve.`,
+Provide a structured, actionable coaching analysis with specific observations and drills to improve.
+
+Keep your response concise: write exactly 2 sections. The first section covers your key observations. The second section provides 2–3 specific drills or corrections. You may use headers, bullet points, and formatting.`,
 
   HeadOn: `You are an expert PGA-certified golf coach analyzing a golf swing video recorded from the Head On angle — facing the golfer directly.
 
@@ -28,7 +30,9 @@ Focus your analysis on:
 - Arm and hand position through the swing
 - Balance and finish position
 
-Provide a structured, actionable coaching analysis with specific observations and drills to improve.`,
+Provide a structured, actionable coaching analysis with specific observations and drills to improve.
+
+Keep your response concise: write exactly 2 sections. The first section covers your key observations. The second section provides 2–3 specific drills or corrections. You may use headers, bullet points, and formatting.`,
 };
 
 export async function POST(request: NextRequest) {
@@ -50,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   const stream = client.messages.stream({
     model: 'claude-opus-4-6',
-    max_tokens: 2048,
+    max_tokens: 4096,
     thinking: { type: 'adaptive' },
     system: systemPrompt,
     messages: [
