@@ -3,7 +3,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from '@headlessui/react';
 import { Dialog } from '@headlessui/react';
-import Image from 'next/image';
 
 type CameraType = 'DTL' | 'HeadOn';
 
@@ -160,7 +159,7 @@ export default function Home() {
       <div className="w-full max-w-2xl p-8 rounded-xl border-2 border-dashed transition-all duration-200 ease-in-out backdrop-blur-sm bg-white/30">
         <div className="flex flex-col items-center justify-center text-center space-y-4">
           <div className="p-4 rounded-full bg-green-100">
-            <Image src="/icons/Swing_Icon.png" alt="Golf swing icon" width={48} height={48} className="object-contain mx-auto" />
+            <img src="/icons/Swing_Icon.png" alt="Golf swing icon" className="w-12 h-12 object-contain mx-auto" />
           </div>
           <div className="space-y-2">
             <p className="text-xl font-semibold text-gray-700">
@@ -293,7 +292,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="w-32 h-32">
-                  <Image src="/icons/DTL_Logo.webp" alt="Down The Line View Icon" width={128} height={128} className="object-contain" />
+                  <img src="/icons/DTL_Logo.webp" alt="Down The Line View Icon" className="w-full h-full object-contain" />
                 </div>
                 <Button
                   type="button"
@@ -312,7 +311,7 @@ export default function Home() {
                   </p>
                 </div>
                 <div className="w-32 h-32">
-                  <Image src="/icons/HeadOn_Logo_transparent.png" alt="Head On View Icon" width={128} height={128} className="object-contain" />
+                  <img src="/icons/HeadOn_Logo_transparent.png" alt="Head On View Icon" className="w-full h-full object-contain" />
                 </div>
                 <Button
                   type="button"
